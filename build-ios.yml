@@ -1,0 +1,38 @@
+name: Build unsigned iPhone verification app
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Show toolchain
+        run: |
+          xcodebuild -version
+          xcodebuild -showsdks
+      - name: Install project generator
+        run: brew install xcodegen
+      - name: Generate project
+        run: xcodegen generate
+      - name: Build for physical iPhone
+        run: >-
+          xcodebuild -project IslandTranslate.xcodeproj
+          -scheme IslandTranslate -configuration Release
+          -sdk iphoneos -destination 'generic/platform=iOS'
+          -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
+      - name: Package unsigned IPA
+        run: |
+          mkdir -p build/package/Payload
+          cp -R build/Build/Products/Release-iphoneos/IslandTranslate.app build/package/Payload/
+          cd build/package
+          zip -qr ../IslandTranslate-unsigned.ipa Payload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: IslandTranslate-unsigned
+          path: build/IslandTranslate-unsigned.ipa
+          retention-days: 7
